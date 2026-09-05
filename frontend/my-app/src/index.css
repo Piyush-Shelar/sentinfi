@@ -1,0 +1,125 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --color-navy-950: #0f1540;
+  --color-navy-900: #1E2761;
+  --color-navy-800: #252f7a;
+  --color-navy-700: #2d3a94;
+  --color-navy-600: #3547b8;
+  --color-navy-100: #e8eaf6;
+  --color-navy-50: #f0f1fb;
+
+  --color-teal-700: #166b57;
+  --color-teal-600: #1F8A70;
+  --color-teal-500: #24a382;
+  --color-teal-400: #2bbf99;
+  --color-teal-100: #d1f0e8;
+  --color-teal-50: #e8f8f3;
+
+  --color-amber-700: #8b3208;
+  --color-amber-600: #C1440E;
+  --color-amber-500: #d94e12;
+  --color-amber-400: #e86832;
+  --color-amber-100: #fce8df;
+  --color-amber-50: #fef3ee;
+
+  --color-gold-500: #d4a017;
+  --color-gold-400: #e6b428;
+  --color-gold-100: #fdf3d7;
+  --color-gold-50: #fffaed;
+
+  --color-surface: #F8F9FC;
+  --color-surface-card: #FFFFFF;
+  --color-border: #E2E6F0;
+  --color-border-strong: #C8CDE0;
+
+  --font-family-sans: 'Inter', system-ui, sans-serif;
+
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-card-hover: 0 4px 12px 0 rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.08);
+  --shadow-modal: 0 20px 60px -10px rgb(0 0 0 / 0.25);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #F8F9FC;
+  color: #1a1f3a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #c8cde0;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a0a8c0;
+}
+
+/* Custom animations */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes progressFill {
+  from { stroke-dashoffset: var(--dash-total); }
+  to   { stroke-dashoffset: var(--dash-offset); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+.animate-fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
+.animate-fade-in    { animation: fadeIn 0.3s ease-out forwards; }
+.animate-slide-left { animation: slideInLeft 0.4s ease-out forwards; }
+.animate-scale-in   { animation: scaleIn 0.3s ease-out forwards; }
+.animate-spin-slow  { animation: spin 1s linear infinite; }
+.animate-pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
+
+.stagger-1 { animation-delay: 0.05s; opacity: 0; }
+.stagger-2 { animation-delay: 0.10s; opacity: 0; }
+.stagger-3 { animation-delay: 0.15s; opacity: 0; }
+.stagger-4 { animation-delay: 0.20s; opacity: 0; }
+.stagger-5 { animation-delay: 0.25s; opacity: 0; }
+.stagger-6 { animation-delay: 0.30s; opacity: 0; }
+
+/* Focus rings */
+input:focus, select:focus, textarea:focus, button:focus-visible {
+  outline: 2px solid #1E2761;
+  outline-offset: 2px;
+}
+
+/* Transition defaults */
+.transition-default {
+  transition: all 0.2s ease;
+}
