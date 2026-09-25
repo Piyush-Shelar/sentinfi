@@ -4,7 +4,7 @@ import {
   Shield, LayoutDashboard, Users, AlertTriangle, Settings,
   LogOut, Menu, X, Bell, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { loggedInAdmin } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
 
 const sidebarLinks = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -16,6 +16,10 @@ const sidebarLinks = [
 export function AdminSidebar({ collapsed, onToggle }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const adminName = user?.name || 'Advisor';
+  const adminInitials = adminName.split(' ').map(w => w[0]).slice(0, 2).join('');
 
   return (
     <aside
@@ -77,16 +81,16 @@ export function AdminSidebar({ collapsed, onToggle }) {
         {!collapsed && (
           <div className="flex items-center gap-3 px-2 py-2">
             <div className="w-8 h-8 rounded-full bg-navy-700 border-2 border-teal-600/50 flex items-center justify-center text-xs font-bold flex-shrink-0">
-              {loggedInAdmin.avatar}
+              {adminInitials}
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-medium truncate">{loggedInAdmin.name}</div>
-              <div className="text-xs text-white/40 truncate">{loggedInAdmin.role}</div>
+              <div className="text-sm font-medium truncate">{adminName}</div>
+              <div className="text-xs text-white/40 truncate">Advisor</div>
             </div>
           </div>
         )}
         <button
-          onClick={() => navigate('/admin/login')}
+          onClick={() => { logout(); navigate('/admin/login'); }}
           title={collapsed ? 'Sign Out' : undefined}
           className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-white/50 hover:bg-white/5 hover:text-white transition-colors"
         >
@@ -106,6 +110,9 @@ export function AdminSidebar({ collapsed, onToggle }) {
 
 export function AdminTopbar({ onMobileSidebarToggle }) {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const adminName = user?.name || 'Advisor';
+  const adminInitials = adminName.split(' ').map(w => w[0]).slice(0, 2).join('');
   return (
     <header className="bg-white border-b border-border h-16 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-40 shadow-card">
       <button className="lg:hidden p-2 rounded-lg hover:bg-gray-100" onClick={onMobileSidebarToggle}>
@@ -127,11 +134,11 @@ export function AdminTopbar({ onMobileSidebarToggle }) {
         </button>
         <div className="flex items-center gap-2 pl-3 border-l border-border">
           <div className="w-8 h-8 rounded-full bg-navy-900 flex items-center justify-center text-xs font-bold text-white">
-            {loggedInAdmin.avatar}
+            {adminInitials}
           </div>
           <div className="hidden sm:block text-sm">
-            <div className="font-medium text-navy-900 leading-tight">{loggedInAdmin.name}</div>
-            <div className="text-gray-400 text-xs">{loggedInAdmin.role}</div>
+            <div className="font-medium text-navy-900 leading-tight">{adminName}</div>
+            <div className="text-gray-400 text-xs">Advisor</div>
           </div>
         </div>
       </div>

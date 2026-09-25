@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Settings, Bell, Lock, User, Shield, Save } from 'lucide-react';
+import { Bell, Lock, User, Shield, Save } from 'lucide-react';
 import { AdminSidebar, AdminTopbar } from '../../components/AdminLayout';
-import { loggedInAdmin } from '../../data/mockData';
+import { useAuth } from '../../context/AuthContext';
 
 export default function AdminSettings() {
+  const { user } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebar, setMobileSidebar] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -12,6 +13,10 @@ export default function AdminSettings() {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
+
+  const displayName = user?.name || 'Advisor';
+  const displayEmail = user?.email || '';
+  const initials = displayName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
@@ -34,7 +39,6 @@ export default function AdminSettings() {
             <p className="text-gray-500 text-sm mt-1">Manage your advisor account and preferences</p>
           </div>
 
-          {/* Profile */}
           <div className="bg-white rounded-2xl border border-border shadow-card p-6 mb-5 animate-fade-in-up stagger-1">
             <div className="flex items-center gap-2 mb-5">
               <User size={16} className="text-navy-700" />
@@ -42,29 +46,31 @@ export default function AdminSettings() {
             </div>
             <div className="flex items-center gap-4 mb-5">
               <div className="w-14 h-14 rounded-full bg-navy-900 flex items-center justify-center text-xl font-bold text-white">
-                {loggedInAdmin.avatar}
+                {initials}
               </div>
               <div>
-                <p className="font-semibold text-navy-900">{loggedInAdmin.name}</p>
-                <p className="text-sm text-gray-500">{loggedInAdmin.role}</p>
+                <p className="font-semibold text-navy-900">{displayName}</p>
+                <p className="text-sm text-gray-500">Financial Advisor</p>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
-                { label: 'Full Name', value: loggedInAdmin.name },
-                { label: 'Email', value: loggedInAdmin.email },
-                { label: 'Role', value: loggedInAdmin.role },
-                { label: 'Organization', value: 'SentinFi Advisory LLP' },
+                { label: 'Full Name',     value: displayName },
+                { label: 'Email',         value: displayEmail },
+                { label: 'Role',          value: 'Financial Advisor' },
+                { label: 'Organization',  value: 'SentinFi Advisory LLP' },
               ].map(f => (
                 <div key={f.label}>
                   <label className="block text-xs font-semibold text-gray-500 mb-1">{f.label}</label>
-                  <input defaultValue={f.value} className="w-full border border-border rounded-xl px-3 py-2 text-sm text-navy-900 focus:border-navy-900 focus:ring-2 focus:ring-navy-900/10 transition-all" />
+                  <input
+                    defaultValue={f.value}
+                    className="w-full border border-border rounded-xl px-3 py-2 text-sm text-navy-900 focus:border-navy-900 focus:ring-2 focus:ring-navy-900/10 transition-all"
+                  />
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Security */}
           <div className="bg-white rounded-2xl border border-border shadow-card p-6 mb-5 animate-fade-in-up stagger-2">
             <div className="flex items-center gap-2 mb-5">
               <Lock size={16} className="text-navy-700" />
@@ -73,8 +79,8 @@ export default function AdminSettings() {
             <div className="space-y-4">
               {[
                 { label: 'Two-Factor Authentication', desc: 'Require OTP on every login', enabled: true },
-                { label: 'Login Notifications', desc: 'Email alert on new sign-in', enabled: true },
-                { label: 'Session Timeout', desc: 'Auto-logout after 30 min of inactivity', enabled: false },
+                { label: 'Login Notifications',       desc: 'Email alert on new sign-in', enabled: true },
+                { label: 'Session Timeout',           desc: 'Auto-logout after 30 min of inactivity', enabled: false },
               ].map(s => (
                 <div key={s.label} className="flex items-center justify-between py-3 border-b border-border last:border-0">
                   <div>
@@ -89,7 +95,6 @@ export default function AdminSettings() {
             </div>
           </div>
 
-          {/* Notifications */}
           <div className="bg-white rounded-2xl border border-border shadow-card p-6 mb-6 animate-fade-in-up stagger-3">
             <div className="flex items-center gap-2 mb-5">
               <Bell size={16} className="text-navy-700" />

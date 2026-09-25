@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Shield, FileText, Upload, BarChart2, LogOut, Menu, X, Bell } from 'lucide-react';
-import { loggedInClient } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
 
 const navLinks = [
   { to: '/client/dashboard', label: 'Dashboard', icon: BarChart2 },
@@ -14,6 +14,10 @@ export default function ClientNavbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const displayName = user?.name ? user.name.split(' ')[0] : 'Client';
+  const initials = user?.name ? user.name.split(' ').map(w => w[0]).slice(0, 2).join('') : '?';
 
   return (
     <nav className="bg-navy-900 text-white shadow-lg sticky top-0 z-50">
@@ -58,15 +62,15 @@ export default function ClientNavbar() {
             </button>
             <div className="hidden md:flex items-center gap-2 pl-3 border-l border-white/20">
               <div className="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center text-xs font-bold">
-                {loggedInClient.avatar}
+                {initials}
               </div>
               <div className="text-sm">
-                <div className="font-medium leading-tight">{loggedInClient.name.split(' ')[0]}</div>
+                <div className="font-medium leading-tight">{displayName}</div>
                 <div className="text-navy-100 text-xs">Client</div>
               </div>
             </div>
             <button
-              onClick={() => navigate('/client/login')}
+              onClick={() => { logout(); navigate('/client/login'); }}
               className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-navy-100 hover:bg-white/10 hover:text-white transition-colors"
             >
               <LogOut size={15} />
@@ -104,7 +108,7 @@ export default function ClientNavbar() {
               );
             })}
             <button
-              onClick={() => navigate('/client/login')}
+              onClick={() => { logout(); navigate('/client/login'); }}
               className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-navy-100 hover:bg-white/5 mt-2"
             >
               <LogOut size={18} />
