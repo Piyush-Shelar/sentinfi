@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   FileText, Lock, ShieldCheck, AlertTriangle, X, Info, Hash,
   Calendar, HardDrive, Eye, Inbox, RefreshCw, Share2, UserCheck,
-  XCircle, Users, ScanLine
+  XCircle, Users, ScanLine, ShieldX, Bug
 } from 'lucide-react';
 import ClientNavbar from '../../components/ClientNavbar';
 import SecurityBadge from '../../components/SecurityBadge';
@@ -203,6 +203,27 @@ export default function ClientDocuments() {
   const [revokeInfo, setRevokeInfo] = useState(null);
   const [filterType, setFilterType] = useState('All');
   const [view, setView] = useState('table');
+  const [tamperBanner, setTamperBanner] = useState(null);
+
+  const handleTamperDetected = useCallback(async () => {
+    try {
+      const res = await fetch('/api/dashboard/dashboard-summary', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.securityHealth) {
+        setTamperBanner({
+          score: data.securityHealth.compositeScore,
+          tScore: data.securityHealth.factors?.tamperHistory?.score ?? null,
+          incidents: data.securityHealth.factors?.tamperHistory?.incidentsDetected ?? null,
+        });
+      } else {
+        setTamperBanner({ score: null, tScore: null, incidents: null });
+      }
+    } catch {
+      setTamperBanner({ score: null, tScore: null, incidents: null });
+    }
+  }, [accessToken]);
 
   const fetchDocs = useCallback(async () => {
     if (!accessToken) return;
@@ -237,6 +258,32 @@ export default function ClientDocuments() {
     setVerifyDoc(doc);
   };
 
+  const [seedingDecoy, setSeedingDecoy] = useState(false);
+  const [seedMsg, setSeedMsg] = useState('');
+
+  const handleSeedDecoy = useCallback(async () => {
+    setSeedingDecoy(true);
+    setSeedMsg('');
+    try {
+      const res = await fetch('/api/documents/seed-decoy', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSeedMsg('✓ Decoy planted — tripwire active');
+        await fetchDocs();
+      } else {
+        setSeedMsg('✗ ' + (data.error || 'Seed failed'));
+      }
+    } catch {
+      setSeedMsg('✗ Unable to reach server');
+    } finally {
+      setSeedingDecoy(false);
+      setTimeout(() => setSeedMsg(''), 3000);
+    }
+  }, [accessToken, fetchDocs]);
+
   return (
     <div className="min-h-screen bg-surface">
       <ClientNavbar />
@@ -246,20 +293,59 @@ export default function ClientDocuments() {
             <h1 className="text-2xl font-bold text-navy-900">My Documents</h1>
             <p className="text-gray-500 text-sm mt-1">All files stored in your encrypted vault</p>
           </div>
-          <button
-            onClick={fetchDocs}
-            disabled={loading}
-            className="p-2 rounded-xl border border-border bg-white hover:bg-gray-50 text-gray-500 transition-colors disabled:opacity-50"
-            title="Refresh"
-          >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-          </button>
+          <div className="flex items-center gap-2">
+            {seedMsg && (
+              <span className={`text-xs font-semibold px-3 py-1.5 rounded-lg border ${
+                seedMsg.startsWith('✓')
+                  ? 'bg-amber-50 border-amber-300 text-amber-700'
+                  : 'bg-red-50 border-red-200 text-red-700'
+              }`}>
+                {seedMsg}
+              </span>
+            )}
+            <button
+              onClick={handleSeedDecoy}
+              disabled={seedingDecoy}
+              title="Plant a honeypot decoy document into your vault"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold transition-all disabled:opacity-50"
+            >
+              {seedingDecoy
+                ? <div className="w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                : <Bug size={13} />}
+              Seed Decoy
+            </button>
+            <button
+              onClick={fetchDocs}
+              disabled={loading}
+              className="p-2 rounded-xl border border-border bg-white hover:bg-gray-50 text-gray-500 transition-colors disabled:opacity-50"
+              title="Refresh"
+            >
+              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
         </div>
 
         {error && (
           <div className="mb-5 flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
             <AlertTriangle size={16} className="flex-shrink-0" />
             {error}
+          </div>
+        )}
+
+        {tamperBanner && (
+          <div className="mb-5 flex items-start gap-3 px-4 py-4 bg-red-50 border-2 border-red-400 rounded-xl animate-fade-in-up">
+            <ShieldX size={18} className="text-red-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-red-800">Tamper Event Logged — Security Score Updated</p>
+              <p className="text-xs text-red-700 mt-0.5 leading-relaxed">
+                A SHA-256 or GCM integrity failure was detected and recorded.
+                {tamperBanner.tScore !== null && ` Document Integrity factor: ${tamperBanner.tScore}/100.`}
+                {tamperBanner.score !== null && ` New composite score: ${tamperBanner.score}/100.`}
+              </p>
+            </div>
+            <button onClick={() => setTamperBanner(null)} className="text-red-400 hover:text-red-600 mt-0.5 flex-shrink-0">
+              <X size={15} />
+            </button>
           </div>
         )}
 
@@ -491,6 +577,7 @@ export default function ClientDocuments() {
         <VerifyAndViewModal
           doc={verifyDoc}
           onClose={() => setVerifyDoc(null)}
+          onTamperDetected={handleTamperDetected}
         />
       )}
 

@@ -14,7 +14,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     setAccessToken(null);
     sessionStorage.removeItem('sentinfi_rt');
-    if (locked) setAccountLocked(true);
+    setAccountLocked(locked === true);
   }, []);
 
   const login = useCallback((userData, tokens) => {

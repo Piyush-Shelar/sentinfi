@@ -28,7 +28,7 @@ function StepRow({ label, done, active }) {
   );
 }
 
-export default function VerifyAndViewModal({ doc, onClose }) {
+export default function VerifyAndViewModal({ doc, onClose, onTamperDetected }) {
   const { accessToken } = useAuth();
   const [phase, setPhase] = useState('loading');
   const [step, setStep] = useState(0);
@@ -69,6 +69,7 @@ export default function VerifyAndViewModal({ doc, onClose }) {
         if (!res.ok || data.tamperDetected) {
           setError(data.error || 'Integrity check failed.');
           setPhase('tampered');
+          if (onTamperDetected) onTamperDetected();
         } else {
           setResult(data);
           setPhase('verified');
@@ -168,7 +169,7 @@ export default function VerifyAndViewModal({ doc, onClose }) {
                 This document may have been altered in storage.
               </p>
               <button
-                onClick={onClose}
+                onClick={() => { if (onTamperDetected) onTamperDetected(); onClose(); }}
                 className="mt-6 px-6 py-2.5 rounded-xl bg-navy-900 hover:bg-navy-800 text-white font-semibold text-sm transition-all"
               >
                 Close

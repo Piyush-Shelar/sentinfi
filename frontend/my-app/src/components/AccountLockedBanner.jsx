@@ -10,7 +10,7 @@ export default function AccountLockedBanner() {
   useEffect(() => {
     if (accountLocked) {
       const t = setTimeout(() => {
-        logout(false);
+        logout();
         navigate('/login');
       }, 8000);
       return () => clearTimeout(t);

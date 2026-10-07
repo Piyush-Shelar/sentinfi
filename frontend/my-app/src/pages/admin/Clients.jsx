@@ -123,7 +123,8 @@ export default function AdminClients() {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 animate-fade-in-up stagger-2">
               {filtered.map((client, idx) => {
                 const initials = client.name?.split(' ').map(w => w[0]).slice(0, 2).join('') || '?';
-                const score = 70;
+                const grantedDocs = client.documentCount || 0;
+                const barPct = Math.min(100, grantedDocs * 20);
                 return (
                   <Link
                     key={client.id}
@@ -146,21 +147,21 @@ export default function AdminClients() {
 
                     <div className="mb-4">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs text-gray-500">Vault Health</span>
-                        <span className="text-sm font-bold text-teal-600">{score}/100</span>
+                        <span className="text-xs text-gray-500">Granted Access</span>
+                        <span className="text-sm font-bold text-navy-800">{grantedDocs} doc{grantedDocs !== 1 ? 's' : ''}</span>
                       </div>
                       <div className="h-2 bg-gray-100 rounded-full">
                         <div
                           className="h-full rounded-full bg-teal-500 transition-all duration-700"
-                          style={{ width: `${score}%` }}
+                          style={{ width: `${barPct}%` }}
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-center">
                       <div className="bg-surface rounded-lg p-2 border border-border">
-                        <p className="text-sm font-bold text-navy-900">{client.documentCount}</p>
-                        <p className="text-[10px] text-gray-400">Documents</p>
+                        <p className="text-sm font-bold text-navy-900">{grantedDocs}</p>
+                        <p className="text-[10px] text-gray-400">Shared Docs</p>
                       </div>
                       <div className="bg-surface rounded-lg p-2 border border-border">
                         <p className="text-[10px] text-gray-400 leading-tight mt-1">

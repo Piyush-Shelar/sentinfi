@@ -83,7 +83,7 @@ router.post(
 
 router.get('/my-documents', authenticate, async (req, res) => {
   try {
-    const docs = await Document.find({ clientId: req.user.id, isHoneypot: { $ne: true } })
+    const docs = await Document.find({ clientId: req.user.id })
       .select('_id documentType originalFilename fileSize sha256Hash createdAt accessGrants')
       .sort({ createdAt: -1 })
       .populate('accessGrants.advisorId', 'name email')
@@ -107,6 +107,44 @@ router.get('/my-documents', authenticate, async (req, res) => {
     return res.status(500).json({ error: 'Failed to fetch documents' });
   }
 });
+
+router.post('/seed-decoy', authenticate, requireRole('client'), async (req, res) => {
+  try {
+    const dummyContent = Buffer.from(
+      'CONFIDENTIAL EMPLOYEE SALARY STATEMENT\nFinancial Year: 2025-2026\nNet Compensation: INR 2,450,000\nStatus: RESTRICTED COMPLIANCE AUDIT RECORD'
+    );
+
+    const sha256Hash = computeSHA256(dummyContent);
+    const vaultPublicKeyPem = getAdvisorPublicKey();
+    const { encryptedBlob, iv, authTag, encryptedAESKey } = encryptDocument(
+      dummyContent,
+      vaultPublicKeyPem
+    );
+
+    const decoy = await Document.create({
+      clientId:         req.user.id,
+      documentType:     'SALARY_SLIP',
+      originalFilename: 'CONFIDENTIAL_EXECUTIVE_SALARY_SLIP_FY25.pdf',
+      mimeType:         'application/pdf',
+      fileSize:         dummyContent.length,
+      encryptedBlob,
+      iv,
+      authTag,
+      encryptedAESKey,
+      sha256Hash,
+      isHoneypot:       true,
+    });
+
+    return res.status(201).json({
+      message:    'Decoy asset successfully seeded into vault',
+      documentId: decoy._id,
+      filename:   decoy.originalFilename,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Seed failed: ' + err.message });
+  }
+});
+
 
 router.post('/:id/grant-access', authenticate, requireRole('client'), async (req, res) => {
   try {
@@ -336,6 +374,19 @@ router.get('/:id/verify-and-view', authenticate, async (req, res) => {
       );
     } catch (err) {
       if (err.code === 'CIPHERTEXT_AUTH_FAILED') {
+        await SecurityEvent.create({
+          userId:     req.user.id,
+          clientId:   doc.clientId,
+          documentId: doc._id,
+          eventType:  'TAMPER_DETECTED_CIPHERTEXT',
+          severity:   'CRITICAL',
+          ipAddress:  req.ip || req.socket?.remoteAddress,
+          userAgent:  req.headers['user-agent'] || '',
+          details: {
+            message: 'GCM authentication tag check failed. Ciphertext altered in storage.',
+            originalFilename: doc.originalFilename,
+          },
+        }).catch(() => {});
         return res.status(400).json({
           error: 'GCM authentication tag mismatch. Ciphertext corrupted or altered in storage.',
           tamperDetected: true,
@@ -347,10 +398,25 @@ router.get('/:id/verify-and-view', authenticate, async (req, res) => {
     const { isValid, computedHash } = verifyIntegrity(decryptedBuffer, doc.sha256Hash);
 
     if (!isValid) {
+      await SecurityEvent.create({
+        userId:     req.user.id,
+        clientId:   doc.clientId,
+        documentId: doc._id,
+        eventType:  'TAMPER_DETECTED_HASH',
+        severity:   'CRITICAL',
+        ipAddress:  req.ip || req.socket?.remoteAddress,
+        userAgent:  req.headers['user-agent'] || '',
+        details: {
+          message: 'SHA-256 baseline mismatch. Document payload modified.',
+          storedHash:       doc.sha256Hash,
+          computedHash,
+          originalFilename: doc.originalFilename,
+        },
+      });
       return res.status(400).json({
         error: 'SHA-256 baseline digest mismatch. Document integrity compromised.',
         tamperDetected: true,
-        storedHash: doc.sha256Hash,
+        storedHash:    doc.sha256Hash,
         computedHash,
       });
     }

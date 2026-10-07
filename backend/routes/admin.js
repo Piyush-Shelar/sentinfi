@@ -78,7 +78,7 @@ router.get('/security-summary', authenticate, requireRole('admin'), async (req, 
     ] = await Promise.all([
       SecurityEvent.countDocuments({}),
       SecurityEvent.countDocuments({ eventType: 'HONEYPOT_TRIGGERED' }),
-      SecurityEvent.countDocuments({ eventType: 'TAMPER_DETECTED' }),
+      SecurityEvent.countDocuments({ eventType: { $in: ['TAMPER_DETECTED', 'TAMPER_DETECTED_HASH', 'TAMPER_DETECTED_CIPHERTEXT'] } }),
       SecurityEvent.countDocuments({ severity: 'CRITICAL' }),
       SecurityEvent.find({})
         .sort({ timestamp: -1 })

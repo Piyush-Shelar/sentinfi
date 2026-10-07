@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Document from '../models/Document.js';
 import User from '../models/User.js';
 import SecurityEvent from '../models/SecurityEvent.js';
@@ -27,11 +28,23 @@ async function computeP(userId) {
 }
 
 async function computeT(userId) {
+  const userObjectId = new mongoose.Types.ObjectId(userId);
   const count = await SecurityEvent.countDocuments({
-    clientId: userId,
-    eventType: { $in: ['TAMPER_DETECTED', 'TAMPER_DETECTED_HASH', 'TAMPER_DETECTED_CIPHERTEXT'] },
+    $or: [
+      { clientId: userObjectId },
+      { userId: userObjectId },
+    ],
+    eventType: {
+      $in: [
+        'TAMPER_DETECTED_HASH',
+        'TAMPER_DETECTED_CIPHERTEXT',
+        'TAMPER_DETECTED',
+        'tamper_detected_hash',
+        'tamper_detected',
+      ],
+    },
   });
-  return Math.max(0, 100 - count * 25);
+  return { score: Math.max(0, 100 - count * 25), incidents: count };
 }
 
 async function computeA(userId) {
@@ -53,7 +66,7 @@ async function computeH(userId) {
 }
 
 export async function calculateSecurityScore(userId) {
-  const [E, P, T, A, H] = await Promise.all([
+  const [E, P, tResult, A, H] = await Promise.all([
     computeE(userId),
     computeP(userId),
     computeT(userId),
@@ -61,16 +74,17 @@ export async function calculateSecurityScore(userId) {
     computeH(userId),
   ]);
 
+  const T = tResult.score;
   const compositeScore = Math.round(0.30 * E + 0.25 * P + 0.20 * T + 0.15 * A + 0.10 * H);
 
   return {
     compositeScore,
     factors: {
-      encryption:     { score: E, weight: 0.30 },
-      passwordHygiene:{ score: P, weight: 0.25 },
-      tamperHistory:  { score: T, weight: 0.20 },
-      accessAnomaly:  { score: A, weight: 0.15 },
-      honeypot:       { score: H, weight: 0.10 },
+      encryption:      { score: E, weight: 0.30 },
+      passwordHygiene: { score: P, weight: 0.25 },
+      tamperHistory:   { score: T, weight: 0.20, incidentsDetected: tResult.incidents },
+      accessAnomaly:   { score: A, weight: 0.15 },
+      honeypot:        { score: H, weight: 0.10 },
     },
     status: compositeScore >= 80 ? 'OPTIMAL' : compositeScore >= 60 ? 'WARNING' : 'CRITICAL',
   };

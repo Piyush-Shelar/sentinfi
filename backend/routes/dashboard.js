@@ -81,29 +81,40 @@ router.get('/dashboard-summary', authenticate, requireRole('client'), async (req
 
 router.get('/advisor-dashboard-summary', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    const allClients = await User.find({ role: 'client' })
-      .select('_id name email createdAt')
-      .lean();
+    const advisorId = req.user.id;
 
-    const clientIds = allClients.map(c => c._id);
-
-    const allDocs = await Document.find({ clientId: { $in: clientIds }, isHoneypot: { $ne: true } })
+    const accessibleDocs = await Document.find({
+      isHoneypot: { $ne: true },
+      accessGrants: {
+        $elemMatch: {
+          advisorId: advisorId,
+          status: 'ACTIVE',
+        },
+      },
+    })
       .select('_id documentType originalFilename fileSize sha256Hash createdAt clientId accessGrants')
       .sort({ createdAt: -1 })
       .lean();
 
+    const uniqueClientIds = [...new Set(accessibleDocs.map(d => d.clientId?.toString()).filter(Boolean))];
+
+    const clientRecords = uniqueClientIds.length > 0
+      ? await User.find({ _id: { $in: uniqueClientIds } })
+          .select('_id name email createdAt')
+          .lean()
+      : [];
+
     const clientMap = {};
-    for (const c of allClients) {
+    for (const c of clientRecords) {
       clientMap[c._id.toString()] = c;
     }
 
-    const enrichedDocs = allDocs.map(d => ({
+    const enrichedDocs = accessibleDocs.map(d => ({
       ...d,
-      clientName: clientMap[d.clientId?.toString()]?.name || 'Unknown',
+      clientName:  clientMap[d.clientId?.toString()]?.name  || 'Unknown',
       clientEmail: clientMap[d.clientId?.toString()]?.email || '',
     }));
 
-    const uniqueClientIds = [...new Set(allDocs.map(d => d.clientId?.toString()))];
     const assignedClients = uniqueClientIds
       .map(id => clientMap[id])
       .filter(Boolean)
@@ -111,20 +122,21 @@ router.get('/advisor-dashboard-summary', authenticate, requireRole('admin'), asy
         id: c._id,
         name: c.name,
         email: c.email,
-        documentCount: allDocs.filter(d => d.clientId?.toString() === c._id.toString()).length,
+        documentCount: accessibleDocs.filter(d => d.clientId?.toString() === c._id.toString()).length,
         joinDate: c.createdAt,
       }));
 
     return res.status(200).json({
-      assignedClientsCount: assignedClients.length,
-      accessibleDocumentsCount: allDocs.length,
-      pendingReviewsCount: 0,
-      documents: enrichedDocs,
+      assignedClientsCount:      assignedClients.length,
+      accessibleDocumentsCount:  accessibleDocs.length,
+      pendingReviewsCount:       0,
+      documents:                 enrichedDocs,
       assignedClients,
     });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to load advisor dashboard: ' + err.message });
   }
 });
+
 
 export default router;
