@@ -34,8 +34,10 @@ const documentSchema = new mongoose.Schema(
     },
     documentType: {
       type: String,
-      enum: ['PAN', 'AADHAAR', 'ITR', 'SALARY_SLIP', 'PORTFOLIO'],
       required: true,
+      trim: true,
+      uppercase: true,
+      maxlength: 60,
     },
     originalFilename: {
       type: String,

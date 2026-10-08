@@ -66,6 +66,36 @@ router.get('/security-events', authenticate, requireRole('admin'), async (req, r
   }
 });
 
+router.get('/all-documents', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const docs = await Document.find({ isHoneypot: { $ne: true } })
+      .select('_id documentType originalFilename fileSize sha256Hash createdAt clientId accessGrants')
+      .populate('clientId', 'name email')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const enriched = docs.map(doc => {
+      const hasActiveGrant = (doc.accessGrants || []).some(
+        g => g.advisorId.toString() === req.user.id.toString() && g.status === 'ACTIVE'
+      );
+      return {
+        _id: doc._id,
+        documentType: doc.documentType,
+        originalFilename: doc.originalFilename,
+        fileSize: doc.fileSize,
+        createdAt: doc.createdAt,
+        sha256Hash: doc.sha256Hash,
+        clientId: doc.clientId,
+        isAuthorized: hasActiveGrant,
+      };
+    });
+
+    return res.status(200).json(enriched);
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to fetch documents: ' + err.message });
+  }
+});
+
 router.get('/security-summary', authenticate, requireRole('admin'), async (req, res) => {
   try {
     const [

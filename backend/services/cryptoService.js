@@ -4,6 +4,18 @@ export function computeSHA256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
+export function toBuffer(val) {
+  if (!val) return Buffer.alloc(0);
+  if (Buffer.isBuffer(val)) return val;
+  if (val.buffer && Buffer.isBuffer(val.buffer)) return val.buffer;
+  if (val._bsontype === 'Binary' && typeof val.read === 'function') return val.read(0, val.length());
+  if (typeof val === 'string') {
+    if (/^[0-9a-fA-F]+$/.test(val)) return Buffer.from(val, 'hex');
+    return Buffer.from(val, 'base64');
+  }
+  return Buffer.from(val);
+}
+
 export function encryptDocument(fileBuffer, publicKeyPem) {
   const aesKey = crypto.randomBytes(32);
   const iv = crypto.randomBytes(12);
@@ -27,6 +39,14 @@ export function encryptDocument(fileBuffer, publicKeyPem) {
 }
 
 export function decryptDocument(encryptedBlob, iv, authTag, encryptedAESKey, privateKeyPem) {
+  const keyBuffer = toBuffer(encryptedAESKey);
+  
+  if (keyBuffer.length !== 256) {
+    const e = new Error(`Invalid RSA ciphertext length: expected 256 bytes, received ${keyBuffer.length} bytes`);
+    e.code = 'RSA_DECRYPT_FAILED';
+    throw e;
+  }
+
   let aesKey;
   try {
     aesKey = crypto.privateDecrypt(
@@ -35,7 +55,7 @@ export function decryptDocument(encryptedBlob, iv, authTag, encryptedAESKey, pri
         padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
         oaepHash: 'sha256',
       },
-      Buffer.isBuffer(encryptedAESKey) ? encryptedAESKey : Buffer.from(encryptedAESKey)
+      keyBuffer
     );
   } catch (err) {
     const e = new Error('RSA key decapsulation failed: ' + err.message);
@@ -48,11 +68,11 @@ export function decryptDocument(encryptedBlob, iv, authTag, encryptedAESKey, pri
     const decipher = crypto.createDecipheriv(
       'aes-256-gcm',
       aesKey,
-      Buffer.isBuffer(iv) ? iv : Buffer.from(iv)
+      toBuffer(iv)
     );
-    decipher.setAuthTag(Buffer.isBuffer(authTag) ? authTag : Buffer.from(authTag));
+    decipher.setAuthTag(toBuffer(authTag));
     decryptedBuffer = Buffer.concat([
-      decipher.update(Buffer.isBuffer(encryptedBlob) ? encryptedBlob : Buffer.from(encryptedBlob)),
+      decipher.update(toBuffer(encryptedBlob)),
       decipher.final(),
     ]);
   } catch (err) {

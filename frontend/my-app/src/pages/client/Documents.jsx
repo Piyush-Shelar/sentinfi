@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import ClientNavbar from '../../components/ClientNavbar';
 import SecurityBadge from '../../components/SecurityBadge';
+import DocumentBadge from '../../components/DocumentBadge';
 import ShareModal from '../../components/ShareModal';
 import VerifyAndViewModal from '../../components/VerifyAndViewModal';
 import { useAuth } from '../../context/AuthContext';
@@ -97,7 +98,7 @@ function DocumentDetailModal({ doc, onClose, onShareClick }) {
             </div>
             <div>
               <h2 className="font-bold text-navy-900 text-sm">{doc.originalFilename}</h2>
-              <p className="text-xs text-gray-500">{doc.documentType}</p>
+              <div className="mt-1"><DocumentBadge type={doc.documentType} /></div>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
@@ -426,7 +427,7 @@ export default function ClientDocuments() {
                               </div>
                             </td>
                             <td className="py-3.5 px-4 hidden sm:table-cell cursor-pointer" onClick={() => setSelectedDoc(doc)}>
-                              <span className="text-sm text-gray-600">{doc.documentType}</span>
+                              <DocumentBadge type={doc.documentType} />
                             </td>
                             <td className="py-3.5 px-4 hidden md:table-cell cursor-pointer" onClick={() => setSelectedDoc(doc)}>
                               <span className="text-sm text-gray-600">
@@ -515,9 +516,10 @@ export default function ClientDocuments() {
                       >
                         {doc.originalFilename}
                       </h3>
-                      <p className="text-xs text-gray-500 mb-3">
-                        {doc.documentType} · {doc.fileSize ? `${(doc.fileSize / 1024).toFixed(1)} KB` : ''}
-                      </p>
+                      <div className="flex items-center gap-2 mb-3">
+                        <DocumentBadge type={doc.documentType} />
+                        <span className="text-xs text-gray-500">{doc.fileSize ? `${(doc.fileSize / 1024).toFixed(1)} KB` : ''}</span>
+                      </div>
                       {grants.length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-3">
                           {grants.map(g => (

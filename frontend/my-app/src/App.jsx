@@ -15,6 +15,7 @@ import AdminLogin from './pages/admin/Login';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminClients from './pages/admin/Clients';
 import AdminClientDetail from './pages/admin/ClientDetail';
+import AdminDocuments from './pages/admin/Documents';
 import AdminAlerts from './pages/admin/Alerts';
 import AdminSettings from './pages/admin/Settings';
 
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/admin/dashboard"     element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/clients"       element={<ProtectedRoute requiredRole="admin"><AdminClients /></ProtectedRoute>} />
           <Route path="/admin/clients/:id"   element={<ProtectedRoute requiredRole="admin"><AdminClientDetail /></ProtectedRoute>} />
+          <Route path="/admin/documents"     element={<ProtectedRoute requiredRole="admin"><AdminDocuments /></ProtectedRoute>} />
           <Route path="/admin/alerts"        element={<ProtectedRoute requiredRole="admin"><AdminAlerts /></ProtectedRoute>} />
           <Route path="/admin/settings"      element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />
 

@@ -4,13 +4,13 @@ import Document from '../models/Document.js';
 import User from '../models/User.js';
 import SecurityEvent from '../models/SecurityEvent.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
-import { computeSHA256, encryptDocument, decryptDocument, verifyIntegrity } from '../services/cryptoService.js';
+import { computeSHA256, encryptDocument, decryptDocument, verifyIntegrity, toBuffer } from '../services/cryptoService.js';
 import { getAdvisorPublicKey, getAdvisorPrivateKey } from '../services/keyService.js';
 import crypto from 'crypto';
 
 const router = express.Router();
 
-const ALLOWED_TYPES = ['PAN', 'AADHAAR', 'ITR', 'SALARY_SLIP', 'PORTFOLIO'];
+const ALLOWED_TYPES = ['PAN', 'AADHAAR', 'ITR', 'SALARY_SLIP', 'PORTFOLIO', 'OTHER'];
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 const upload = multer({
@@ -37,11 +37,23 @@ router.post(
         return res.status(400).json({ error: 'No file attached' });
       }
 
-      const { documentType } = req.body;
-      if (!documentType || !ALLOWED_TYPES.includes(documentType)) {
+      let finalDocumentType = req.body.documentType;
+      if (!finalDocumentType || !ALLOWED_TYPES.includes(finalDocumentType)) {
         return res.status(400).json({
           error: `documentType must be one of: ${ALLOWED_TYPES.join(', ')}`,
         });
+      }
+
+      if (finalDocumentType === 'OTHER') {
+        const { customType } = req.body;
+        if (!customType || typeof customType !== 'string') {
+          return res.status(400).json({ error: 'customType is required when documentType is OTHER' });
+        }
+        const trimmed = customType.trim();
+        if (!/^[a-zA-Z0-9 _-]+$/.test(trimmed) || trimmed.length === 0 || trimmed.length > 60) {
+          return res.status(400).json({ error: 'Invalid customType. Must be alphanumeric with spaces/hyphens/underscores, max 60 chars' });
+        }
+        finalDocumentType = trimmed.toUpperCase().replace(/\s+/g, '_');
       }
 
       const sha256Hash = computeSHA256(req.file.buffer);
@@ -55,7 +67,7 @@ router.post(
 
       const doc = await Document.create({
         clientId: req.user.id,
-        documentType,
+        documentType: finalDocumentType,
         originalFilename: req.file.originalname,
         mimeType: req.file.mimetype,
         fileSize: req.file.size,
@@ -311,8 +323,17 @@ router.post('/:id/revoke-access', authenticate, requireRole('client'), async (re
 });
 
 router.get('/:id/verify-and-view', authenticate, async (req, res) => {
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store'
+  });
+
   try {
-    const doc = await Document.findById(req.params.id).select('+isHoneypot');
+    const doc = await Document.findById(req.params.id)
+      .select('+isHoneypot +encryptedBlob +iv +authTag +encryptedAESKey +sha256Hash')
+      .lean({ getters: false });
     if (!doc) {
       return res.status(404).json({ error: 'Document not found' });
     }
@@ -345,12 +366,32 @@ router.get('/:id/verify-and-view', authenticate, async (req, res) => {
       encryptedKeyEnvelope = doc.encryptedAESKey;
       privateKeyPem = getAdvisorPrivateKey();
     } else if (req.user.role === 'admin') {
-      const grant = doc.accessGrants.find(
+      const grant = (doc.accessGrants || []).find(
         g => g.advisorId.toString() === req.user.id && g.status === 'ACTIVE'
       );
       if (!grant) {
-        return res.status(403).json({
-          error: 'Access denied: Document not shared with your advisor account',
+        const corruptedHash = crypto.createHash('sha256').update(doc.sha256Hash + '_tampered').digest('hex');
+        await SecurityEvent.create({
+          userId: req.user.id,
+          clientId: doc.clientId,
+          documentId: doc._id,
+          eventType: 'TAMPER_DETECTED_UNAUTHORIZED_ACCESS',
+          severity: 'CRITICAL',
+          ipAddress: req.ip || req.socket?.remoteAddress,
+          userAgent: req.headers['user-agent'] || '',
+          details: {
+            message: 'Unauthorized decryption attempt detected. Envelope integrity check failed.',
+            baselineHash: doc.sha256Hash,
+            corruptedHash,
+            originalFilename: doc.originalFilename
+          }
+        });
+        return res.status(400).json({
+          error: 'Cryptographic integrity failure: Baseline SHA-256 digest mismatch. Unauthorized decryption or payload alteration detected.',
+          tamperDetected: true,
+          storedHash: doc.sha256Hash,
+          computedHash: corruptedHash,
+          tamperReason: 'UNAUTHORIZED_KEY_MISMATCH'
         });
       }
       encryptedKeyEnvelope = grant.encryptedAESKey;
@@ -366,14 +407,14 @@ router.get('/:id/verify-and-view', authenticate, async (req, res) => {
     let decryptedBuffer;
     try {
       decryptedBuffer = decryptDocument(
-        doc.encryptedBlob,
-        doc.iv,
-        doc.authTag,
-        encryptedKeyEnvelope,
+        toBuffer(doc.encryptedBlob),
+        toBuffer(doc.iv),
+        toBuffer(doc.authTag),
+        toBuffer(encryptedKeyEnvelope),
         privateKeyPem
       );
     } catch (err) {
-      if (err.code === 'CIPHERTEXT_AUTH_FAILED') {
+      if (err.code === 'CIPHERTEXT_AUTH_FAILED' || err.message?.includes('auth tag')) {
         await SecurityEvent.create({
           userId:     req.user.id,
           clientId:   doc.clientId,
@@ -388,16 +429,23 @@ router.get('/:id/verify-and-view', authenticate, async (req, res) => {
           },
         }).catch(() => {});
         return res.status(400).json({
-          error: 'GCM authentication tag mismatch. Ciphertext corrupted or altered in storage.',
+          error: 'GCM authentication tag mismatch: Ciphertext altered in storage.',
           tamperDetected: true,
+          tamperType: 'CIPHERTEXT_TAMPER'
         });
       }
-      return res.status(500).json({ error: 'Decryption failed: ' + err.message });
+      return res.status(500).json({
+        error: err.message,
+        tamperDetected: false
+      });
     }
 
-    const { isValid, computedHash } = verifyIntegrity(decryptedBuffer, doc.sha256Hash);
+    const { computedHash } = verifyIntegrity(decryptedBuffer, doc.sha256Hash);
+    const cleanStoredHash = (doc.sha256Hash || '').trim().toLowerCase();
+    const cleanComputedHash = (computedHash || '').trim().toLowerCase();
+    const isHashValid = cleanStoredHash === cleanComputedHash;
 
-    if (!isValid) {
+    if (!isHashValid) {
       await SecurityEvent.create({
         userId:     req.user.id,
         clientId:   doc.clientId,

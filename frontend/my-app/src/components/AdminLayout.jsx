@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Shield, LayoutDashboard, Users, AlertTriangle, Settings,
-  LogOut, Menu, X, Bell, ChevronLeft, ChevronRight
+  LogOut, Menu, X, Bell, ChevronLeft, ChevronRight, FileText
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const sidebarLinks = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/admin/clients', label: 'Clients', icon: Users },
+  { to: '/admin/documents', label: 'Documents', icon: FileText },
   { to: '/admin/alerts', label: 'Security Alerts', icon: AlertTriangle, badge: 3 },
   { to: '/admin/settings', label: 'Settings', icon: Settings },
 ];

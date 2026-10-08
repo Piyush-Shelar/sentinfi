@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import ClientNavbar from '../../components/ClientNavbar';
 import SecurityBadge from '../../components/SecurityBadge';
+import DocumentBadge from '../../components/DocumentBadge';
 import { useAuth } from '../../context/AuthContext';
 
 const DOC_TYPE_OPTIONS = [
@@ -13,6 +14,7 @@ const DOC_TYPE_OPTIONS = [
   { label: 'ITR',                  value: 'ITR' },
   { label: 'Salary Slip',          value: 'SALARY_SLIP' },
   { label: 'Portfolio Statement',  value: 'PORTFOLIO' },
+  { label: 'Other',                value: 'OTHER' },
 ];
 
 const PIPELINE_STAGES = [
@@ -82,9 +84,12 @@ function DocumentCard({ doc }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-semibold text-navy-900 truncate">{doc.originalFilename || doc.name}</p>
-        <p className="text-xs text-gray-500 mt-0.5">
-          {doc.documentType || doc.type} · {doc.fileSize ? `${(doc.fileSize / 1024).toFixed(1)} KB` : doc.size}
-        </p>
+        <div className="flex items-center gap-2 mt-1 mb-0.5">
+          <DocumentBadge type={doc.documentType || doc.type} />
+          <span className="text-xs text-gray-500">
+            {doc.fileSize ? `${(doc.fileSize / 1024).toFixed(1)} KB` : doc.size}
+          </span>
+        </div>
         {doc.sha256Hash && (
           <p className="text-xs text-gray-400 font-mono mt-0.5 truncate" title={doc.sha256Hash}>
             {doc.sha256Hash.slice(0, 16)}…
@@ -104,6 +109,7 @@ export default function ClientUpload() {
   const [dragOver, setDragOver]     = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [docType, setDocType]       = useState('');
+  const [customTypeName, setCustomTypeName] = useState('');
   const [pipelineStage, setPipelineStage] = useState(null);
   const [uploadDone, setUploadDone] = useState(false);
   const [result, setResult]         = useState(null);
@@ -162,6 +168,10 @@ export default function ClientUpload() {
       setError('Please select a file and a document type.');
       return;
     }
+    if (docType === 'OTHER' && !customTypeName.trim()) {
+      setError('Please specify the document type.');
+      return;
+    }
     setError('');
 
     const preStages = ['sha256', 'aeskey', 'gcm', 'rsa'];
@@ -185,6 +195,9 @@ export default function ClientUpload() {
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('documentType', docType);
+      if (docType === 'OTHER') {
+        formData.append('customType', customTypeName.trim());
+      }
 
       const res = await fetch('/api/documents/upload', {
         method: 'POST',
@@ -214,6 +227,7 @@ export default function ClientUpload() {
     clearTimeout(stageTimerRef.current);
     setSelectedFile(null);
     setDocType('');
+    setCustomTypeName('');
     setPipelineStage(null);
     setUploadDone(false);
     setResult(null);
@@ -348,6 +362,22 @@ export default function ClientUpload() {
                   </button>
                 ))}
               </div>
+              {docType === 'OTHER' && (
+                <div className="mt-4 animate-fade-in duration-200">
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Specify Document Type
+                  </label>
+                  <input
+                    type="text"
+                    value={customTypeName}
+                    onChange={(e) => setCustomTypeName(e.target.value)}
+                    disabled={isProcessing}
+                    placeholder="e.g., Bank Statement, Rental Agreement"
+                    maxLength={60}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-navy-900 focus:border-transparent transition-all shadow-sm disabled:opacity-60"
+                  />
+                </div>
+              )}
             </div>
 
             {error && (

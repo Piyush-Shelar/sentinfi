@@ -4,6 +4,7 @@ import {
   Download, ZoomIn, ZoomOut, Loader, Hash
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import DocumentBadge from './DocumentBadge';
 
 function StepRow({ label, done, active }) {
   return (
@@ -45,6 +46,11 @@ export default function VerifyAndViewModal({ doc, onClose, onTamperDetected }) {
 
   useEffect(() => {
     if (!doc || !accessToken) return;
+    
+    setPhase('loading');
+    setError('');
+    setResult(null);
+    setStep(0);
 
     let stepTimer;
     let stepIndex = 0;
@@ -59,7 +65,7 @@ export default function VerifyAndViewModal({ doc, onClose, onTamperDetected }) {
 
     stepTimer = setTimeout(advance, 550);
 
-    fetch(`/api/documents/${doc._id}/verify-and-view`, {
+    fetch(`/api/documents/${doc._id}/verify-and-view?_t=${Date.now()}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
       .then(async res => {
@@ -119,7 +125,7 @@ export default function VerifyAndViewModal({ doc, onClose, onTamperDetected }) {
             </div>
             <div>
               <h2 className="font-bold text-navy-900 text-sm">{doc?.originalFilename}</h2>
-              <p className="text-xs text-gray-500">{doc?.documentType}</p>
+              <div className="mt-1"><DocumentBadge type={doc?.documentType} /></div>
             </div>
           </div>
           <button
@@ -202,7 +208,11 @@ export default function VerifyAndViewModal({ doc, onClose, onTamperDetected }) {
                 ].map(m => (
                   <div key={m.label} className="bg-surface rounded-xl p-3 border border-border text-center">
                     <p className="text-[10px] text-gray-400 mb-0.5 uppercase tracking-wide">{m.label}</p>
-                    <p className="text-xs font-bold text-navy-900">{m.value}</p>
+                    {m.label === 'Type' ? (
+                      <div className="mt-1"><DocumentBadge type={m.value} /></div>
+                    ) : (
+                      <p className="text-xs font-bold text-navy-900">{m.value}</p>
+                    )}
                   </div>
                 ))}
               </div>
